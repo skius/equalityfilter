@@ -27,7 +27,7 @@ public class UIForm {
     private DefaultListModel<String> equalListModel;
     private DefaultListModel<String> notEqualListModel;
 
-    private EqualityFilter filter;
+    private EqualityFilter<String> filter;
     private List<String> questionsToProcess;
     private String currQuestion;
 
@@ -50,7 +50,7 @@ public class UIForm {
 
                 // Need modifiable list
                 questionsToProcess = new ArrayList<>(Arrays.asList(questions));
-                filter = new EqualityFilter(questions);
+                filter = new EqualityFilter<>(questions);
                 setNewQuestion(questions[0]);
             }
         });

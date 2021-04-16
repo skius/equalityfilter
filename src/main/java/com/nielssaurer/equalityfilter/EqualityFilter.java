@@ -3,18 +3,18 @@ package com.nielssaurer.equalityfilter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class EqualityFilter {
-    private Map<String, Integer> questionToId;
-    private Map<String, Integer> questionToGroup;
-    private Map<String, Collection<Integer>> questionNotEqualGroup;
+public class EqualityFilter<V> {
+    private Map<V, Integer> questionToId;
+    private Map<V, Integer> questionToGroup;
+    private Map<V, Collection<Integer>> questionNotEqualGroup;
     private int[][] notEqualAdjMatrix;
-    private List<String> allQuestions;
+    private List<V> allQuestions;
 
-    public EqualityFilter(String[] questions) {
+    public EqualityFilter(V[] questions) {
         notEqualAdjMatrix = new int[questions.length][questions.length];
-        questionToGroup = new HashMap<String, Integer>();
-        questionToId = new HashMap<String, Integer>();
-        questionNotEqualGroup = new HashMap<String, Collection<Integer>>();
+        questionToGroup = new HashMap<V, Integer>();
+        questionToId = new HashMap<V, Integer>();
+        questionNotEqualGroup = new HashMap<V, Collection<Integer>>();
         for (int i = 0; i < questions.length; i++) {
             // We know for sure questions are equal to themselves
             questionToGroup.put(questions[i], i);
@@ -26,24 +26,24 @@ public class EqualityFilter {
         allQuestions = Arrays.asList(questions);
     }
 
-    public Map<Integer, Collection<String>> getGroups() {
-        Map<Integer, Collection<String>> groups = new HashMap<>();
+    public Map<Integer, Collection<V>> getGroups() {
+        Map<Integer, Collection<V>> groups = new HashMap<>();
         for (var entry : questionToGroup.entrySet()) {
             int group = entry.getValue();
-            String question = entry.getKey();
+            V question = entry.getKey();
             if (!groups.containsKey(group)) {
-                groups.put(group, new HashSet<String>());
+                groups.put(group, new HashSet<V>());
             }
             groups.get(group).add(question);
         }
         return groups;
     }
 
-    public boolean isEqual(String question1, String question2) {
-        return questionToGroup.get(question1) == questionToGroup.get(question2);
+    public boolean isEqual(V question1, V question2) {
+        return questionToGroup.get(question1).equals(questionToGroup.get(question2));
     }
 
-    public boolean isNotEqual(String question1, String question2) {
+    public boolean isNotEqual(V question1, V question2) {
         if (notEqualAdjMatrix[questionToId.get(question1)][questionToId.get(question2)] == 1) {
             // There is a not-equal edge between the two questions, they can't be equal
             return true;
@@ -51,9 +51,9 @@ public class EqualityFilter {
         // Check if any of question1's group is not equal to any of question2's group. Then memoize that result
         boolean areNotEqual = false;
         Outer:
-        for (String equal1 : getEquals(question1)) {
+        for (V equal1 : getEquals(question1)) {
             int id1 = questionToId.get(equal1);
-            for (String equal2 : getEquals(question2)) {
+            for (V equal2 : getEquals(question2)) {
                 int id2 = questionToId.get(equal2);
                 if (notEqualAdjMatrix[id1][id2] == 1) {
                     areNotEqual = true;
@@ -63,20 +63,20 @@ public class EqualityFilter {
         }
         if (areNotEqual) {
             // Memoize result
-            for (String equal1 : getEquals(question1)) {
+            for (V equal1 : getEquals(question1)) {
                 setNotEqual(equal1, getEquals(question2));
             }
         }
         return areNotEqual;
     }
 
-    public List<String> getNotEquals(String question) {
+    public List<V> getNotEquals(V question) {
         return allQuestions.stream().filter(q -> isNotEqual(question, q)).collect(Collectors.toList());
     }
 
-    public List<String> getPossiblyEqual(String question) {
+    public List<V> getPossiblyEqual(V question) {
         // questions for which we don't know yet whether they're equal or not
-        ArrayList<String> possiblyEquals = new ArrayList<>();
+        ArrayList<V> possiblyEquals = new ArrayList<>();
         possiblyEquals.addAll(allQuestions);
         // Remove questions that are for certain equal
         possiblyEquals.removeAll(getEquals(question));
@@ -86,27 +86,27 @@ public class EqualityFilter {
         return possiblyEquals;
     }
 
-    public void setNotEqual(String question, String[] notEquals) {
+    public void setNotEqual(V question, V[] notEquals) {
         setNotEqual(question, Arrays.asList(notEquals));
     }
 
-    public void setNotEqual(String question, String notEqual) {
+    public void setNotEqual(V question, V notEqual) {
         setNotEqual(question, Collections.singletonList(notEqual));
     }
 
-    public void setNotEqual(String question, List<String> notEquals) {
+    public void setNotEqual(V question, List<V> notEquals) {
         setNotEqual(question, notEquals, new HashSet<>());
     }
 
-    public void setNotEqual(String question, List<String> notEquals, Collection<String> ignores) {
+    public void setNotEqual(V question, List<V> notEquals, Collection<V> ignores) {
         int id1 = questionToId.get(question);
-        for (String notEqual : notEquals) {
+        for (V notEqual : notEquals) {
             if (ignores.contains(notEqual)) {
                 // We are already handling this in an ancestor of our call tree
                 continue;
             }
             // For all questions that are equal to notEqual, set those not equal to question
-            List<String> notEqualEquals = getEqualsStrict(notEqual);
+            List<V> notEqualEquals = getEqualsStrict(notEqual);
             // ignore notEqual in subsequent call, because we've already set it to be not equal
             ignores.add(notEqual);
             setNotEqual(question, notEqualEquals, ignores);
@@ -116,13 +116,13 @@ public class EqualityFilter {
         }
     }
 
-    public void setEqual(String question, String[] equals) {
+    public void setEqual(V question, V[] equals) {
         setEqual(question, Arrays.asList(equals));
     }
 
-    public void setEqual(String question, List<String> equals) {
+    public void setEqual(V question, List<V> equals) {
         int group = questionToGroup.get(question);
-        for (String equal : equals) {
+        for (V equal : equals) {
             // question is obviously equal to itself and already has the same group
             if (question.equals(equal))
                 continue;
@@ -132,23 +132,23 @@ public class EqualityFilter {
                 continue;
 
             // Recursively set all children of equal to question's group
-            List<String> equalEquals = getEqualsStrict(equal);
+            List<V> equalEquals = getEqualsStrict(equal);
             // Order is important here, to avoid ping-ponging we need to change equal's group before recursive call
             questionToGroup.put(equal, group);
             setEqual(question, equalEquals);
         }
     }
 
-    public List<String> getEquals(String question) {
-        List<String> strict = getEqualsStrict(question);
+    public List<V> getEquals(V question) {
+        List<V> strict = getEqualsStrict(question);
         // question is also equal to itself
         strict.add(question);
         return strict;
     }
 
-    public List<String> getEqualsStrict(String question) {
+    public List<V> getEqualsStrict(V question) {
         int wantedGroup = questionToGroup.get(question);
-        List<String> equals = new ArrayList<>();
+        List<V> equals = new ArrayList<>();
         for (var entry : questionToGroup.entrySet()) {
             if (entry.getKey().equals(question)) {
                 // Don't add question itself to equals
